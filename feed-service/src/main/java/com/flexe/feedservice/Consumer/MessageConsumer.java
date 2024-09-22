@@ -52,7 +52,7 @@ public class MessageConsumer {
 
         switch (action){
             case VIEW -> postFeedService.UserViewedPost(interaction);
-            case LIKE, REPOST -> postFeedService.UserInteractedWithPost(interaction, action);
+            case LIKE, REPOST, COMMENT -> postFeedService.UserInteractedWithPost(interaction, action);
             case UNLIKE, UNSAVE -> postFeedService.RemoveUserInteractionFeedRecipients(interaction);
             default -> throw new IllegalArgumentException("Invalid Post Interaction Action");
         }
@@ -67,7 +67,7 @@ public class MessageConsumer {
 
         switch (action){
             case FOLLOW -> postFeedService.addTargetPostsToUserFeed(interaction);
-            case UNFOLLOW, BLOCK -> postFeedService.removeTargetsPostsFromUserFeed(interaction);
+            case UNFOLLOW, BLOCK -> postFeedService.removeTargetFromUserFeed(interaction);
             default -> throw new IllegalArgumentException("Invalid User Interaction Action");
         }
 

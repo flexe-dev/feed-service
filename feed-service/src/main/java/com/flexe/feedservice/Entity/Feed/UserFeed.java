@@ -21,13 +21,11 @@ public class UserFeed {
     @PrimaryKey
     private FeedKey key;
     @Column("read_status")
-    private Boolean readStatus;
+    private Boolean readStatus = false;
     @Column("post_type")
     private Integer postType;
-    @Column("recipient_type")
-    private RecipientType feedRecipientType;
-    @Column("recipient_reference_id")
-    private String recipientReferenceId;
+    @Column("group_id")
+    private String groupId;
 
     public UserFeed(){
 
@@ -35,25 +33,18 @@ public class UserFeed {
 
     public UserFeed(String targetId, PostCreationRelationship post){
         this.key = new FeedKey(post, targetId);
-        this.readStatus = false;
         this.postType = parsePostType(post.getPost().getType());
-        this.feedRecipientType = RecipientType.NETWORK;
     }
 
     public UserFeed(PostNode post, FeedRecipient recipient){
         PostCreationRelationship newPost = new PostCreationRelationship(post);
         this.key = new FeedKey(newPost, recipient.getUser().getUserId());
-        this.readStatus = false;
         this.postType = parsePostType(post.getType());
-        this.feedRecipientType = recipient.getRecipientType();
-        this.recipientReferenceId = recipient.getRecipient_reference_id();
     }
 
     public UserFeed(PostNode post){
         this.key = new FeedKey(post);
-        this.readStatus = false;
         this.postType = parsePostType(post.getType());
-        this.feedRecipientType = RecipientType.AUTHOR;
     }
 
     public Integer parsePostType(PostType type){

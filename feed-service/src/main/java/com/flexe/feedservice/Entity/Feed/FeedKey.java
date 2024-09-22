@@ -20,11 +20,13 @@ public class FeedKey {
     @PrimaryKeyColumn(name = "user_id", ordinal = 0, type = PrimaryKeyType.PARTITIONED)
     private String userId;
 
-    @PrimaryKeyColumn(name = "post_id", ordinal = 1, type = PrimaryKeyType.CLUSTERED)
+    @PrimaryKeyColumn(name = "post_date", ordinal = 1, type = PrimaryKeyType.CLUSTERED)
+    private Date postDate;
+
+    @PrimaryKeyColumn(name = "post_id", ordinal = 2, type = PrimaryKeyType.CLUSTERED)
     private String postId;
 
-    @PrimaryKeyColumn(name = "post_date")
-    private Date postDate;
+
 
     public FeedKey(){}
 
@@ -38,15 +40,7 @@ public class FeedKey {
     public FeedKey(PostNode post){
         this.userId = post.getUserId();
         this.postId = post.getPostId();
-        this.postDate = new Date();
-    }
-
-
-
-    public FeedKey(PostNode post,  PostRecipient recipient){
-        this.userId = recipient.getKey().getUserId();
-        this.postId = post.getPostId();
-        this.postDate = recipient.getPostDate();
+        this.postDate = post.getPostDate();
     }
 
     // equals and hashcode
@@ -64,7 +58,4 @@ public class FeedKey {
         return Objects.hash(userId, postDate, postId);
     }
 
-    public static List<FeedKey> FromRecipient(PostNode post, List<PostRecipient> recipients){
-        return recipients.stream().map(recipient -> new FeedKey(post, recipient)).toList();
-    }
 }

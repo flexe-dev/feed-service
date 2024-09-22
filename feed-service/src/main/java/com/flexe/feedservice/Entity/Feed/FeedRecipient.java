@@ -17,13 +17,14 @@ public class FeedRecipient {
         //Posts From Network Interactions
         LIKE(1),
         REPOST(2),
+        COMMENT(3),
         //Posts From Groups a User is a Member Of
-        GROUP(3),
+        GROUP(4),
         //Pro Users Feature - Added To Friends of Friends of ... Feed as Suggested People To Follow
-        SUGGESTED(4),
+        SUGGESTED(5),
         //Advertiser Promoted
-        PROMOTED(5),
-        AUTHOR(6);
+        PROMOTED(6),
+        AUTHOR(7);
 
         private final int value;
 

@@ -4,34 +4,29 @@ import com.flexe.feedservice.Entity.Nodes.PostNode;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
+import org.springframework.data.cassandra.core.mapping.Indexed;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyClass;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyColumn;
 
 @Getter
 @Setter
 @PrimaryKeyClass
-public class RecipientKey {
-    @PrimaryKeyColumn(name = "post_id", ordinal = 0, type = PrimaryKeyType.PARTITIONED)
+public class PostReferenceKey {
+    @PrimaryKeyColumn(name = "originator_user_id", ordinal = 0, type = PrimaryKeyType.PARTITIONED)
+    private String originatorUserId;
+    @PrimaryKeyColumn(name = "post_id", ordinal = 1, type = PrimaryKeyType.CLUSTERED)
     private String postId;
 
-    @PrimaryKeyColumn(name = "user_id", ordinal = 1, type = PrimaryKeyType.CLUSTERED)
-    private String userId;
-
-    @PrimaryKeyColumn(name = "originator_user_id", ordinal = 2, type = PrimaryKeyType.CLUSTERED)
-    private String originatorUserId;
-
-    public RecipientKey() {
+    public PostReferenceKey() {
     }
 
-    public RecipientKey(String postId, String userId, String originatorUserId) {
+    public PostReferenceKey(String postId, String originatorUserId) {
         this.postId = postId;
-        this.userId = userId;
         this.originatorUserId = originatorUserId;
     }
 
-    public RecipientKey(PostNode post, String userId){
+    public PostReferenceKey(PostNode post){
         this.postId = post.getPostId();
-        this.userId = userId;
         this.originatorUserId = post.getUserId();
     }
 

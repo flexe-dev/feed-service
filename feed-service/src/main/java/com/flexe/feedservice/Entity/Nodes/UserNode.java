@@ -22,6 +22,7 @@ public class UserNode extends UserDetails {
     private List<UserInteractionRelationship> blockedUsers = new ArrayList<>();
     private List<PostInteractionRelationship> likedPosts = new ArrayList<>();
     private List<PostInteractionRelationship> savedPosts = new ArrayList<>();
+    private List<PostInteractionRelationship> repostedPosts = new ArrayList<>();
     private List<PostShareRelationship> sharedPosts = new ArrayList<>();
 
     public UserNode(){
