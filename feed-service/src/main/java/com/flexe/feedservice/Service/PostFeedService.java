@@ -19,6 +19,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -44,8 +45,14 @@ public class PostFeedService {
     public List<FeedDisplay> getUserFeed(String userId){
         List<UserFeed> userFeedPosts = userFeedRepository.findByKeyUserId(userId);
         List<PostFeedReference> postReferences = postFeedReferenceRepository.findByUserId(userId);
-        //Do stuff
-        return null;
+        //Group Post Reference For each User Feed Instance
+        Map<String, List<PostFeedReference>> postReferenceMap = postReferences.stream().collect(Collectors.groupingBy(PostFeedReference::getPostId));
+
+        return userFeedPosts.stream().map(feed -> {
+            List<PostFeedReference> postReference = postReferenceMap.get(feed.getKey().getPostId());
+            return new FeedDisplay(feed, postReference);
+        }).toList();
+
     }
 
     public Long getDaysAgo(Long daysAgo){

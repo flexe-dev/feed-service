@@ -61,6 +61,10 @@ public class PostFeedReference {
         return type.getValue();
     }
 
+    public String getPostId(){
+        return this.key.getPostId();
+    }
+
     public static List<PostFeedReference> FromGeneratedRecipients(FeedRecipient[] userRecipients, PostNode post) {
         return Arrays.stream(userRecipients).map(recipient -> new PostFeedReference(post, recipient)).toList();
     }
