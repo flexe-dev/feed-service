@@ -1,6 +1,7 @@
 package com.flexe.feedservice.Entity.Feed;
 
 import com.flexe.feedservice.Entity.Nodes.UserNode;
+import com.flexe.feedservice.Entity.enums.PostInteractionEnums;
 import com.flexe.feedservice.Entity.user.UserDetails;
 import com.flexe.feedservice.Entity.user.UserDisplay;
 import lombok.Getter;
@@ -39,6 +40,18 @@ public class FeedRecipient {
                 }
             }
             throw new IllegalArgumentException("Invalid RecipientType value: " + value);
+        }
+
+        public static RecipientType FromPostAction(PostInteractionEnums.PostInteractionEnum action) {
+            switch (action) {
+                case LIKE, UNLIKE -> { return RecipientType.LIKE;}
+                case REPOST, UNREPOST -> {return RecipientType.REPOST;}
+                case COMMENT -> { return RecipientType.COMMENT;}
+
+                default -> {
+                    throw new IllegalArgumentException("Invalid Post Interaction Action");
+                }
+            }
         }
     }
 

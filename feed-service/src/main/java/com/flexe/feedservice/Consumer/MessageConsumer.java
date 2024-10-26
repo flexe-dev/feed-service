@@ -53,7 +53,7 @@ public class MessageConsumer {
         switch (action){
             case VIEW -> postFeedService.UserViewedPost(interaction);
             case LIKE, REPOST, COMMENT -> postFeedService.UserInteractedWithPost(interaction, action);
-            case UNLIKE, UNSAVE -> postFeedService.RemoveUserInteractionFeedRecipients(interaction);
+            case UNLIKE, UNREPOST -> postFeedService.RemoveUserInteractionFeedRecipients(interaction, action);
             default -> throw new IllegalArgumentException("Invalid Post Interaction Action");
         }
     }

@@ -1,25 +1,21 @@
 package com.flexe.feedservice.Service;
 
-import com.flexe.feedservice.Configuration.HttpService;
 import com.flexe.feedservice.Entity.Feed.*;
+import com.flexe.feedservice.Entity.Feed.Lookup.OriginReferenceLookup;
+import com.flexe.feedservice.Entity.Feed.Lookup.PostLookup;
 import com.flexe.feedservice.Entity.Nodes.PostNode;
 import com.flexe.feedservice.Entity.enums.PostInteractionEnums;
 import com.flexe.feedservice.Entity.interactions.PostInteraction;
 import com.flexe.feedservice.Entity.interactions.UserInteraction;
 import com.flexe.feedservice.Entity.relationships.PostCreationRelationship;
 import com.flexe.feedservice.Entity.Nodes.UserNode;
-import com.flexe.feedservice.Repository.PostFeedReferenceRepository;
+import com.flexe.feedservice.Repository.PostLookupRepository;
+import com.flexe.feedservice.Repository.ReferenceLookupRepository;
 import com.flexe.feedservice.Repository.UserFeedRepository;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -27,146 +23,156 @@ import java.util.stream.Stream;
 public class PostFeedService {
 
     @Autowired
-    private HttpService httpService;
-
-    @Autowired
     private UserFeedRepository userFeedRepository;
 
-    private WebClient interactionWebClient;
     @Autowired
-    private PostFeedReferenceRepository postFeedReferenceRepository;
+    private ReferenceLookupRepository referenceLookupRepository;
 
-    @PostConstruct
-    public void init(){
-        this.interactionWebClient = httpService.generateWebClient(HttpService.TargetController.NODE);
-    }
+    @Autowired
+    private PostLookupRepository postLookupRepository;
 
-    //Get Users Feed From The Past 30 Days
+    @Autowired
+    private NodeService nodeService;
+
     public List<FeedDisplay> getUserFeed(String userId){
+        //Retrieve All Posts for a users feed
         List<UserFeed> userFeedPosts = userFeedRepository.findByKeyUserId(userId);
-        List<PostFeedReference> postReferences = postFeedReferenceRepository.findByUserId(userId);
-        //Group Post Reference For each User Feed Instance
-        Map<String, List<PostFeedReference>> postReferenceMap = postReferences.stream().collect(Collectors.groupingBy(PostFeedReference::getPostId));
+        if(userFeedPosts.isEmpty()) return List.of();
 
-        return userFeedPosts.stream().map(feed -> {
-            List<PostFeedReference> postReference = postReferenceMap.get(feed.getKey().getPostId());
-            return new FeedDisplay(feed, postReference);
-        }).toList();
 
+        //Retrieve All Active origins for a feed's post
+        List<OriginReferenceLookup> feedOriginReferences= referenceLookupRepository.findByKeyUserId(userId).stream().filter(OriginReferenceLookup::getIsActive).toList();
+        if(feedOriginReferences.isEmpty()) return List.of();
+
+        //Group each reference via its post id
+        Map<String, List<OriginReferenceLookup>> postReferenceMap = feedOriginReferences.stream().collect(Collectors.groupingBy(OriginReferenceLookup::getPostId));
+        return userFeedPosts.stream().map(
+                feed -> new FeedDisplay(feed, postReferenceMap.get(feed.getKey().getPostId())))
+                .filter(display -> display.getRecipientReferences() != null && !display.getRecipientReferences().isEmpty()).toList();
     }
 
-    public Long getDaysAgo(Long daysAgo){
-        return daysAgo * 24 * 60 * 60 * 1000;
+    public Stream<FeedDisplay> SortFeedByNearestReferenceDate(Stream<FeedDisplay> feed){
+        return feed.sorted(Comparator.comparing(a ->
+                Collections.max(a.getRecipientReferences().stream().map(OriginReferenceLookup::getReferenceDate).toList())));
     }
 
+    //User Account Deletion - Remove All User Posts and Interactions from All User Feed
     public void handleUserAccountDeletion(UserNode user){
-        postFeedReferenceRepository.deleteByKeyOriginatorUserId(user.getUserId());
+
     }
 
+    //User Unfollow - Remove Target User's Posts from User Feed
     public void removeTargetFromUserFeed(UserInteraction interaction){
-        //Find All Instances where the originator was the unfollowed target
-        List<PostFeedReference> targetUserReferences = postFeedReferenceRepository.findByKeyOriginatorUserIdAndUserId(interaction.getUserId(), interaction.getTargetId());
-
-        postFeedReferenceRepository.deleteAll(targetUserReferences);
-        //Remove all posts from the target user
-        targetUserReferences.forEach(ref -> {
-            userFeedRepository.deleteUserFeedByKeyUserIdAndKeyPostDateAndKeyPostId(ref.getUserId(), ref.getPostDate(), ref.getKey().getPostId());
-            }
-        );
+        List<OriginReferenceLookup> targetReferences = referenceLookupRepository.findByKeyOriginatorUserIdAndKeyUserId(interaction.getUserId(), interaction.getTargetId());
+        //todo: Add batch jobs
+        targetReferences.forEach(reference -> {
+            reference.setIsActive(false);
+            referenceLookupRepository.save(reference);
+        });
     }
 
-    //This Will Add all recent Posts from the Target to the User's Feed
+    //User Follow - Add Followed User's Posts to User Feed
     public void addTargetPostsToUserFeed(UserInteraction interaction){
-        PostCreationRelationship[] targetUsersPosts = FetchUserPosts(interaction.getTargetId());
+        PostCreationRelationship[] targetUsersPosts = nodeService.FetchUserPosts(interaction.getTargetId());
+        if(targetUsersPosts.length == 0) return;
 
-        //Generate Feed From Posts
-        List<UserFeed> generatedFeed = UserFeed.FromPostNodes(interaction.getUserId(), targetUsersPosts);
+        //Add New Entry to User Feed
+        List<UserFeed> generatedFeed = UserFeed.FromUserInteraction(interaction, targetUsersPosts);
 
-        //Add User as a Recipient to all of the posts
-        List<PostFeedReference> recipient = PostFeedReference.FromUserFollowRelation(targetUsersPosts, interaction);
+        //Add a reference Lookup for each post
+        List<OriginReferenceLookup> referenceLookups = OriginReferenceLookup.FromUserFollowRelation(targetUsersPosts, interaction);
+
+        //Add New Entry to Post Lookup
+        List<PostLookup> postLookups = Arrays.stream(targetUsersPosts).map(post -> new PostLookup(post.getPost())).toList();
 
         userFeedRepository.saveAll(generatedFeed);
-        postFeedReferenceRepository.saveAll(recipient);
+        referenceLookupRepository.saveAll(referenceLookups);
+        postLookupRepository.saveAll(postLookups);
     }
 
-    public PostCreationRelationship[] FetchUserPosts(String userId){
-        ResponseEntity<PostCreationRelationship[]> response = httpService.get(interactionWebClient, "/node/post/user/" + userId, PostCreationRelationship[].class);
-
-        if(!response.getStatusCode().is2xxSuccessful() || response.getBody() == null){
-            throw new IllegalArgumentException("Failed to get user post from post service");
-        }
-
-        //Filter Posts to Only Include Posts From The Past 30 Days
-        return Arrays.stream(response.getBody())
-                .filter(p -> p.getCreatedAt().after(new Date(System.currentTimeMillis() - getDaysAgo(30L))))
-                .toArray(PostCreationRelationship[]::new);
-    }
-
+    //Post Creation - Add Post To Recipient's Feed
     public void addPostToAllRecipientFeed(PostNode post){
-        //Retrieve All Appropriate Recipients for this post
-        ResponseEntity<FeedRecipient[]> response = httpService.post(interactionWebClient, "/node/post/feed/recipients", post, FeedRecipient[].class);
-
-        if(!response.getStatusCode().is2xxSuccessful() || response.getBody() == null){
-            throw new IllegalArgumentException("Failed To Get Relevant Post Recipients");
-        }
-
-        FeedRecipient[] postRecipients = response.getBody();
+        FeedRecipient[] postRecipients = nodeService.getRelevantRecipients(post);
+        if(postRecipients.length == 0) return;
 
         List<UserFeed> generatedFeed = Stream.concat(
-                UserFeed.FromRecipientResponse(post, postRecipients).stream(),
-                Stream.of(new UserFeed(post))
-        ).toList();
+                UserFeed.FromPost(post, postRecipients).stream(),
+                Stream.of(new UserFeed(post))).toList();
 
-        List<PostFeedReference> generatedRecipientReferences = Stream.concat(
-                PostFeedReference.FromGeneratedRecipients(postRecipients, post).stream(),
-                Stream.of(new PostFeedReference(post))).toList();
+        List<OriginReferenceLookup> generatedRecipientReferences = Stream.concat(
+                OriginReferenceLookup.FromGeneratedRecipients(postRecipients, post).stream(),
+                Stream.of(new OriginReferenceLookup(post))).toList();
+
+        PostLookup postLookup = new PostLookup(post);
 
         userFeedRepository.saveAll(generatedFeed);
-        postFeedReferenceRepository.saveAll(generatedRecipientReferences);
-
+        referenceLookupRepository.saveAll(generatedRecipientReferences);
+        postLookupRepository.save(postLookup);
     }
 
+    //Post Deletion - Remove Post From All Recipients Feed
     public void removePostFromAllRecipients(PostNode postNode){
-        //Remove Post From All Recipients
-        List<PostFeedReference> postReferences = postFeedReferenceRepository.findByKeyOriginatorUserIdAndKeyPostId(postNode.getUserId(), postNode.getPostId());
-        postReferences.forEach(ref -> userFeedRepository.
-                deleteUserFeedByKeyUserIdAndKeyPostDateAndKeyPostId(ref.getUserId(), ref.getPostDate(), ref.getKey().getPostId()));
+        //Find All References From Post
+        List<PostLookup> postLookups = postLookupRepository.findByPostId(postNode.getPostId());
 
-        postFeedReferenceRepository.deleteByKeyOriginatorUserIdAndKeyPostId(postNode.getUserId(), postNode.getPostId());
+        //Find All Origin references from Post
+        postLookups.forEach(postReference -> {
+            List<OriginReferenceLookup> originReferences = referenceLookupRepository.findByKeyOriginatorUserIdAndKeyPostId(postReference.getOriginatorUserId(), postReference.getPostId());
+            originReferences.forEach(reference -> {
+                reference.setIsActive(false);
+                referenceLookupRepository.save(reference);
+            });
+        });
+
+        postLookupRepository.deleteAll(postLookups);
     }
 
+    //Post Interaction - Update User Feed Status
     public void UserViewedPost(PostInteraction interaction){
-        userFeedRepository.markPostAsRead(interaction.getUserId(), interaction.getPost().getPostDate(), interaction.getPost().getPostId());
+        userFeedRepository.markPostAsRead(interaction.getUserId(), interaction.getPost().getPostId());
     }
 
+    //Post Interaction - (ie. Like, Repost,etc) Add Interaction to other User's Feed
     public void UserInteractedWithPost(PostInteraction interaction, PostInteractionEnums.PostInteractionEnum action){
+        // Check if user interacted with his own post (fucking weirdo)
+        if(interaction.getUserId().equals(interaction.getPost().getUserId())) return;
+
+        // Determine if relevant interaction can be shared publicly through user permissions
         if(action != PostInteractionEnums.PostInteractionEnum.REPOST){
             //todo: Check User Preferences to determine post interaction visibility
         }
 
-        //Get relevant recipients
-        ResponseEntity<FeedRecipient[]> response = httpService.post(interactionWebClient,
-                "/node/post/interaction/" + action.name().toLowerCase() + "/recipients",
-                interaction.getPost(), FeedRecipient[].class);
-
-        if(!response.getStatusCode().is2xxSuccessful() || response.getBody() == null){
-            throw new IllegalArgumentException("Failed To Get Relevant Post Recipients");
-        }
-
-        //Filter out the post creator from the recipients
-        FeedRecipient[] postRecipients = Arrays.stream(response.getBody())
+        // Retrieve relevant post recipients (And exclude original post creator)
+        FeedRecipient[] postRecipients = Arrays.stream(nodeService.getRelevantRecipients(interaction, action))
                 .filter(recipient -> !interaction.getPost().getUserId().equals(recipient.getUser().getUserId())).toArray(FeedRecipient[]::new);
 
-        //Add new recipients to the post
-        List<PostFeedReference> newPostRecipient = PostFeedReference.FromGeneratedRecipients(postRecipients, interaction.getPost());
-        List<UserFeed> newFeed = UserFeed.FromRecipientResponse(interaction.getPost(), postRecipients);
+        if(postRecipients.length == 0) return;
 
-        postFeedReferenceRepository.saveAll(newPostRecipient);
+        List<OriginReferenceLookup> newPostRecipient = OriginReferenceLookup.FromGeneratedRecipients(postRecipients, interaction.getPost());
+        List<UserFeed> newFeed = UserFeed.FromPost(interaction.getPost(), postRecipients);
+        PostLookup postLookup = new PostLookup(interaction);
+
+        referenceLookupRepository.saveAll(newPostRecipient);
         userFeedRepository.saveAll(newFeed);
+        postLookupRepository.save(postLookup);
     }
 
-    //Remove a Post from Relevant Users feed who only received it from a prior interaction (ie. Liking, Reposting)
-    public void RemoveUserInteractionFeedRecipients(PostInteraction interaction){
-        postFeedReferenceRepository.deleteByKeyOriginatorUserIdAndKeyPostId(interaction.getUserId(), interaction.getPost().getPostId());
+    //Removing Post Interaction - Remove All references from User's Feed
+    public void RemoveUserInteractionFeedRecipients(PostInteraction interaction, PostInteractionEnums.PostInteractionEnum action){
+        //Find Users references to the post
+
+        if(interaction.getPost().getUserId().equals(interaction.getUserId())) return;
+
+        List<OriginReferenceLookup> postActionReference = referenceLookupRepository.
+                findByKeyOriginatorUserIdAndKeyPostIdAndKeyPostReferenceType(
+                        interaction.getUserId(),
+                        interaction.getPost().getPostId(),
+                        FeedRecipient.RecipientType.FromPostAction(action).getValue());
+
+        postActionReference.forEach(reference -> {
+            reference.setIsActive(false);
+            referenceLookupRepository.save(reference);
+        });
+
     }
 }

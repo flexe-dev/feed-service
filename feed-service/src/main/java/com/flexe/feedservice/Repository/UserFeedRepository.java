@@ -13,8 +13,6 @@ public interface UserFeedRepository extends CassandraRepository<UserFeed, FeedKe
 
     List<UserFeed> findByKeyUserId(String userId);
 
-    void deleteUserFeedByKeyUserIdAndKeyPostDateAndKeyPostId(String userId, Date postDate, String postId);
-
-    @Query("UPDATE user_feed SET read_status = true WHERE user_id = ?0 AND post_date = ?1 AND post_id = ?2")
-    void markPostAsRead(String userId, Date postDate, String postId);
+    @Query("UPDATE user_feed SET read_status = true WHERE user_id = ?0 AND post_id = ?1")
+    void markPostAsRead(String userId, String postId);
 }

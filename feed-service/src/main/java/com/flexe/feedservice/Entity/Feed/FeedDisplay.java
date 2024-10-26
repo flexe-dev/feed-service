@@ -1,5 +1,6 @@
 package com.flexe.feedservice.Entity.Feed;
 
+import com.flexe.feedservice.Entity.Feed.Lookup.OriginReferenceLookup;
 import lombok.Getter;
 import lombok.Setter;
 import com.flexe.feedservice.Entity.Feed.FeedRecipient.*;
@@ -11,20 +12,12 @@ import java.util.stream.Collectors;
 @Setter
 public class FeedDisplay {
     UserFeed userFeed;
-    Map<RecipientType, List<PostFeedReference>> recipientReferences;
+    List<OriginReferenceLookup> recipientReferences;
 
-    public FeedDisplay(){}
-
-    public FeedDisplay(UserFeed userFeed){
+    public FeedDisplay(UserFeed userFeed, List<OriginReferenceLookup> recipientReferences){
         this.userFeed = userFeed;
+        this.recipientReferences = recipientReferences;
     }
 
-    public FeedDisplay(UserFeed userFeed, List<PostFeedReference> recipientReferences){
-        this.userFeed = userFeed;
-        this.recipientReferences = FromPostReferences(recipientReferences);
-    }
 
-    public static Map<RecipientType, List<PostFeedReference>> FromPostReferences(List<PostFeedReference> recipientReferences){
-        return recipientReferences.stream().collect(Collectors.groupingBy(PostFeedReference::getPostRecipientType));
-    }
 }
