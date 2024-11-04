@@ -7,8 +7,8 @@ import com.flexe.feedservice.Entity.Nodes.PostNode;
 import com.flexe.feedservice.Entity.enums.PostInteractionEnums;
 import com.flexe.feedservice.Entity.interactions.PostInteraction;
 import com.flexe.feedservice.Entity.interactions.UserInteraction;
-import com.flexe.feedservice.Entity.relationships.PostCreationRelationship;
 import com.flexe.feedservice.Entity.Nodes.UserNode;
+import com.flexe.feedservice.Entity.relationships.CreationRelationship;
 import com.flexe.feedservice.Repository.PostLookupRepository;
 import com.flexe.feedservice.Repository.ReferenceLookupRepository;
 import com.flexe.feedservice.Repository.UserFeedRepository;
@@ -51,11 +51,6 @@ public class PostFeedService {
                 .filter(display -> display.getRecipientReferences() != null && !display.getRecipientReferences().isEmpty()).toList();
     }
 
-    public Stream<FeedDisplay> SortFeedByNearestReferenceDate(Stream<FeedDisplay> feed){
-        return feed.sorted(Comparator.comparing(a ->
-                Collections.max(a.getRecipientReferences().stream().map(OriginReferenceLookup::getReferenceDate).toList())));
-    }
-
     //User Account Deletion - Remove All User Posts and Interactions from All User Feed
     public void handleUserAccountDeletion(UserNode user){
 
@@ -73,8 +68,8 @@ public class PostFeedService {
 
     //User Follow - Add Followed User's Posts to User Feed
     public void addTargetPostsToUserFeed(UserInteraction interaction){
-        PostCreationRelationship[] targetUsersPosts = nodeService.FetchUserPosts(interaction.getTargetId());
-        if(targetUsersPosts.length == 0) return;
+        List<CreationRelationship<PostNode>> targetUsersPosts = nodeService.FetchUserPosts(interaction.getTargetId());
+        if(targetUsersPosts.isEmpty()) return;
 
         //Add New Entry to User Feed
         List<UserFeed> generatedFeed = UserFeed.FromUserInteraction(interaction, targetUsersPosts);
@@ -83,7 +78,7 @@ public class PostFeedService {
         List<OriginReferenceLookup> referenceLookups = OriginReferenceLookup.FromUserFollowRelation(targetUsersPosts, interaction);
 
         //Add New Entry to Post Lookup
-        List<PostLookup> postLookups = Arrays.stream(targetUsersPosts).map(post -> new PostLookup(post.getPost())).toList();
+        List<PostLookup> postLookups = targetUsersPosts.stream().map(post -> new PostLookup(post.getRoot())).toList();
 
         userFeedRepository.saveAll(generatedFeed);
         referenceLookupRepository.saveAll(referenceLookups);

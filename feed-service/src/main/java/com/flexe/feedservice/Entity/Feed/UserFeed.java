@@ -2,9 +2,8 @@ package com.flexe.feedservice.Entity.Feed;
 
 import com.flexe.feedservice.Entity.Nodes.PostNode;
 import com.flexe.feedservice.Entity.Nodes.PostNode.*;
-import com.flexe.feedservice.Entity.interactions.PostInteraction;
 import com.flexe.feedservice.Entity.interactions.UserInteraction;
-import com.flexe.feedservice.Entity.relationships.PostCreationRelationship;
+import com.flexe.feedservice.Entity.relationships.CreationRelationship;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.cassandra.core.mapping.Column;
@@ -76,8 +75,8 @@ public class UserFeed {
         return Objects.hash(key, readStatus);
     }
 
-    public static List<UserFeed> FromUserInteraction(UserInteraction interaction, PostCreationRelationship[] posts){
-        return Arrays.stream(posts).map(post -> new UserFeed(interaction, post.getPost())).collect(Collectors.toList());
+    public static List<UserFeed> FromUserInteraction(UserInteraction interaction, List<CreationRelationship<PostNode>> posts){
+        return posts.stream().map(post -> new UserFeed(interaction, post.getRoot())).collect(Collectors.toList());
     }
 
     public static List<UserFeed> FromPost(PostNode post, FeedRecipient[] recipients){

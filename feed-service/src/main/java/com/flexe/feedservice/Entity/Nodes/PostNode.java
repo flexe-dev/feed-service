@@ -18,9 +18,6 @@ public class PostNode {
 
     //Metadata
     private List<String> tags;
-    private List<String> tech;
-    private List<String> keywords;
-
     public enum PostType{
         TEXT,
         MEDIA

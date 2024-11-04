@@ -3,7 +3,7 @@ package com.flexe.feedservice.Entity.Feed.Lookup;
 import com.flexe.feedservice.Entity.Feed.FeedRecipient;
 import com.flexe.feedservice.Entity.Nodes.PostNode;
 import com.flexe.feedservice.Entity.interactions.UserInteraction;
-import com.flexe.feedservice.Entity.relationships.PostCreationRelationship;
+import com.flexe.feedservice.Entity.relationships.CreationRelationship;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
@@ -34,9 +34,9 @@ public class OriginReferenceKey {
         this.postReferenceType = RecipientType.AUTHOR.getValue();
     }
 
-    public OriginReferenceKey(PostCreationRelationship post, UserInteraction interaction){
-        this.postId = post.getPost().getPostId();
-        this.originatorUserId = post.getPost().getUserId();
+    public OriginReferenceKey(CreationRelationship<PostNode> post, UserInteraction interaction){
+        this.postId = post.getRoot().getPostId();
+        this.originatorUserId = post.getRoot().getUserId();
         this.userId = interaction.getUserId();
         this.postReferenceType = RecipientType.NETWORK.getValue();
     }

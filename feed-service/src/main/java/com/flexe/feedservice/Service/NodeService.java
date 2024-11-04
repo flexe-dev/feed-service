@@ -5,9 +5,10 @@ import com.flexe.feedservice.Entity.Feed.FeedRecipient;
 import com.flexe.feedservice.Entity.Nodes.PostNode;
 import com.flexe.feedservice.Entity.enums.PostInteractionEnums;
 import com.flexe.feedservice.Entity.interactions.PostInteraction;
-import com.flexe.feedservice.Entity.relationships.PostCreationRelationship;
+import com.flexe.feedservice.Entity.relationships.CreationRelationship;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -33,8 +34,10 @@ public class NodeService {
         return daysAgo * 24 * 60 * 60 * 1000;
     }
 
-    public PostCreationRelationship[] FetchUserPosts(String userId){
-        ResponseEntity<PostCreationRelationship[]> response = httpService.get(interactionWebClient, "/node/post/user/" + userId, PostCreationRelationship[].class);
+    public List<CreationRelationship<PostNode>> FetchUserPosts(String userId){
+        ResponseEntity<CreationRelationship<PostNode>[]> response = httpService
+                .get(interactionWebClient, "/node/post/user/" + userId,
+                        new ParameterizedTypeReference<CreationRelationship<PostNode>[]>(){});
 
         if(!response.getStatusCode().is2xxSuccessful() || response.getBody() == null){
             throw new IllegalArgumentException("Failed to get user post from post service");
@@ -42,8 +45,8 @@ public class NodeService {
 
         //Filter Posts to Only Include Posts From The Past 30 Days
         return Arrays.stream(response.getBody())
-                .filter(p -> p.getCreatedAt().after(new Date(System.currentTimeMillis() - getDaysAgo(30L))))
-                .toArray(PostCreationRelationship[]::new);
+                .filter(post -> post.getCreatedAt().getTime() > new Date().getTime() - getDaysAgo(30L))
+                .toList();
     }
 
     public FeedRecipient[] getRelevantRecipients(PostNode post){

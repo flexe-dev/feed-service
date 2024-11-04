@@ -3,7 +3,7 @@ package com.flexe.feedservice.Entity.Feed.Lookup;
 import com.flexe.feedservice.Entity.Feed.FeedRecipient;
 import com.flexe.feedservice.Entity.Nodes.PostNode;
 import com.flexe.feedservice.Entity.interactions.UserInteraction;
-import com.flexe.feedservice.Entity.relationships.PostCreationRelationship;
+import com.flexe.feedservice.Entity.relationships.CreationRelationship;
 import com.flexe.feedservice.Entity.Feed.FeedRecipient.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -30,7 +30,7 @@ public class OriginReferenceLookup {
     public OriginReferenceLookup() {
     }
 
-    public OriginReferenceLookup(PostCreationRelationship post, UserInteraction interaction, RecipientType type){
+    public OriginReferenceLookup(CreationRelationship<PostNode> post, UserInteraction interaction, RecipientType type){
         this.key = new OriginReferenceKey(post, interaction);
     }
 
@@ -54,7 +54,8 @@ public class OriginReferenceLookup {
         return Arrays.stream(userRecipients).map(recipient -> new OriginReferenceLookup(post, recipient)).toList();
     }
 
-    public static List<OriginReferenceLookup> FromUserFollowRelation(PostCreationRelationship[] posts, UserInteraction interaction){
-        return Arrays.stream(posts).map(post -> new OriginReferenceLookup(post, interaction, RecipientType.NETWORK)).toList();
+    public static List<OriginReferenceLookup> FromUserFollowRelation(List<CreationRelationship<PostNode>> posts, UserInteraction interaction){
+        return posts.stream().map(post -> new OriginReferenceLookup(post, interaction, RecipientType.NETWORK)).toList();
+
     }
 }
